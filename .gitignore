@@ -40,6 +40,10 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Media
+*.webm
+*.mp4
+
 # Databases
 *.db
 *.sqlite
