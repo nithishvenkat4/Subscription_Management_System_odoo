@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Root Menu -->
+    <menuitem id="menu_brightloop_subscription_root"
+              name="Subscriptions"
+              web_icon="brightloop_subscription,static/description/icon.png"
+              sequence="15"/>
+
+    <!-- Operations Menu -->
+    <menuitem id="menu_brightloop_operations"
+              name="Subscriptions"
+              parent="menu_brightloop_subscription_root"
+              sequence="10"/>
+
+    <menuitem id="menu_brightloop_subscription_all"
+              name="All Subscriptions"
+              parent="menu_brightloop_operations"
+              action="action_brightloop_subscription"
+              sequence="10"/>
+
+    <!-- Configuration Menu -->
+    <menuitem id="menu_brightloop_configuration"
+              name="Configuration"
+              parent="menu_brightloop_subscription_root"
+              sequence="90"
+              groups="group_brightloop_admin"/>
+
+    <menuitem id="menu_brightloop_plans"
+              name="Subscription Plans"
+              parent="menu_brightloop_configuration"
+              action="action_brightloop_plan"
+              sequence="10"/>
+
+    <menuitem id="menu_brightloop_discounts"
+              name="Discount Rules"
+              parent="menu_brightloop_configuration"
+              action="action_brightloop_discount_rule"
+              sequence="20"/>
+</odoo>

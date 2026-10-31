@@ -1,0 +1,360 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <!-- Dashboard Top Bar -->
+    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+        <div>
+            <div style="font-size: 0.85rem; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: 0.05em;">Scene 7 — End-of-Month Review</div>
+            <h1 style="font-size: 2.15rem; font-weight: 800; color: var(--text-main); letter-spacing: -0.03em;">Finance Lead Analytics Dashboard</h1>
+            <p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 4px;">
+                Single source of truth for recurring revenue, payments, receivables, and aged overdue invoices.
+            </p>
+        </div>
+
+        <!-- Query Performance SLA & Date Filters -->
+        <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+            <div id="sla-badge" style="background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; padding: 6px 14px; border-radius: 9999px; font-size: 0.8rem; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+                <span style="display: inline-block; width: 8px; height: 8px; background: #10b981; border-radius: 50%;"></span>
+                SLA: <span id="query-time">calculating...</span> (&lt; 2s Target)
+            </div>
+
+            <button class="btn btn-secondary btn-sm" onclick="loadDashboard()">🔄 Refresh</button>
+        </div>
+    </div>
+
+    <!-- Core KPI Metrics Grid -->
+    <div class="kpi-grid">
+        <div class="kpi-card purple">
+            <div class="kpi-title">
+                <span>Active Subscriptions</span>
+                <span>📈</span>
+            </div>
+            <div class="kpi-value" id="kpi-active-subs">-</div>
+            <div class="kpi-subtitle">Live recurring contracts on books</div>
+        </div>
+
+        <div class="kpi-card emerald">
+            <div class="kpi-title">
+                <span>Monthly Recurring Rev (MRR)</span>
+                <span>💎</span>
+            </div>
+            <div class="kpi-value" id="kpi-mrr">$0.00</div>
+            <div class="kpi-subtitle">Normalized across daily, weekly, monthly, yearly</div>
+        </div>
+
+        <div class="kpi-card blue">
+            <div class="kpi-title">
+                <span>Annual Run-Rate (ARR)</span>
+                <span>🚀</span>
+            </div>
+            <div class="kpi-value" id="kpi-arr">$0.00</div>
+            <div class="kpi-subtitle">Projected 12-month recurring revenue</div>
+        </div>
+
+        <div class="kpi-card emerald">
+            <div class="kpi-title">
+                <span>Total Cash Collected</span>
+                <span>💵</span>
+            </div>
+            <div class="kpi-value" id="kpi-collected">$0.00</div>
+            <div class="kpi-subtitle">Total payments deposited</div>
+        </div>
+
+        <div class="kpi-card amber">
+            <div class="kpi-title">
+                <span>Total Owed (Accounts Rec.)</span>
+                <span>⏳</span>
+            </div>
+            <div class="kpi-value" id="kpi-owed">$0.00</div>
+            <div class="kpi-subtitle">Unpaid balance on confirmed invoices</div>
+        </div>
+
+        <div class="kpi-card rose">
+            <div class="kpi-title">
+                <span>Total Overdue Receivables</span>
+                <span>⚠️</span>
+            </div>
+            <div class="kpi-value" id="kpi-overdue">$0.00</div>
+            <div class="kpi-subtitle"><span id="kpi-overdue-count">0</span> invoices past due date</div>
+        </div>
+    </div>
+
+    <!-- Charts & Aging Section -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+        <!-- Overdue Aging Buckets Panel -->
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">⚠️ Aged Debt Analysis (Overdue Invoices)</div>
+                <span class="badge badge-overdue" id="aging-status-badge">Action Required</span>
+            </div>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+                Breakdown of overdue balances by delinquent days to prioritize collection efforts before revenue is lost.
+            </p>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; text-align: center; margin-bottom: 1.5rem;">
+                <div style="background: #fef3c7; border: 1px solid #fde68a; border-radius: 10px; padding: 1rem;">
+                    <div style="font-size: 0.75rem; font-weight: 700; color: #92400e; text-transform: uppercase;">1 – 30 Days</div>
+                    <div style="font-size: 1.35rem; font-weight: 800; color: #b45309; margin-top: 4px;" id="aging-1-30">$0.00</div>
+                </div>
+                <div style="background: #ffedd5; border: 1px solid #fed7aa; border-radius: 10px; padding: 1rem;">
+                    <div style="font-size: 0.75rem; font-weight: 700; color: #9a3412; text-transform: uppercase;">31 – 60 Days</div>
+                    <div style="font-size: 1.35rem; font-weight: 800; color: #c2410c; margin-top: 4px;" id="aging-31-60">$0.00</div>
+                </div>
+                <div style="background: #fee2e2; border: 1px solid #fecaca; border-radius: 10px; padding: 1rem;">
+                    <div style="font-size: 0.75rem; font-weight: 700; color: #991b1b; text-transform: uppercase;">60+ Days (Critical)</div>
+                    <div style="font-size: 1.35rem; font-weight: 800; color: #dc2626; margin-top: 4px;" id="aging-60-plus">$0.00</div>
+                </div>
+            </div>
+            <div style="height: 220px; position: relative;">
+                <canvas id="agingChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Plan Breakdown Distribution -->
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">📦 Subscription Distribution by Plan</div>
+                <span style="font-size: 0.8rem; color: var(--text-muted);">Real-time headcount</span>
+            </div>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+                Distribution of active subscribers across monthly, weekly, yearly, and daily cadences.
+            </p>
+            <div style="height: 280px; position: relative;">
+                <canvas id="planChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Prioritized Overdue Invoices Chasing Table -->
+    <div class="panel">
+        <div class="panel-header">
+            <div class="panel-title">🚨 Overdue Invoices to Chase Immediately</div>
+            <a href="/invoices-view" class="btn btn-secondary btn-sm">Manage All Invoices</a>
+        </div>
+        <div class="table-container">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Invoice #</th>
+                        <th>Customer</th>
+                        <th>Due Date</th>
+                        <th>Days Overdue</th>
+                        <th>Total Amount</th>
+                        <th>Amount Paid</th>
+                        <th>Outstanding Debt</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="overdue-table-body">
+                    <tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 2rem;">Loading overdue accounts...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Recent Payments Audit Log -->
+    <div class="panel">
+        <div class="panel-header">
+            <div class="panel-title">💳 Recent Received Payments</div>
+            <a href="/payments-view" class="btn btn-secondary btn-sm">View All Payments</a>
+        </div>
+        <div class="table-container">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Payment #</th>
+                        <th>Invoice #</th>
+                        <th>Customer</th>
+                        <th>Payment Method</th>
+                        <th>Date</th>
+                        <th>Amount</th>
+                        <th>Note</th>
+                    </tr>
+                </thead>
+                <tbody id="payments-table-body">
+                    <tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2rem;">Loading payment history...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let agingChartInstance = null;
+    let planChartInstance = null;
+
+    async function loadDashboard() {
+        const startTime = performance.now();
+        try {
+            const res = await authFetch("/api/v1/analytics/dashboard");
+            const duration = Math.round(performance.now() - startTime);
+
+            document.getElementById("query-time").textContent = `${duration}ms`;
+            if (duration < 2000) {
+                document.getElementById("sla-badge").style.borderColor = "#a7f3d0";
+                document.getElementById("sla-badge").style.background = "#ecfdf5";
+            }
+
+            if (!res.ok) {
+                showToast("Failed to load analytics. Please ensure you are logged in as Admin or Staff.", "error");
+                return;
+            }
+
+            const data = await res.json();
+            const s = data.summary;
+            const a = data.aging;
+
+            // Populate KPIs
+            document.getElementById("kpi-active-subs").textContent = s.active_subscriptions_count.toLocaleString();
+            document.getElementById("kpi-mrr").textContent = `$${s.mrr.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById("kpi-arr").textContent = `$${s.arr.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById("kpi-collected").textContent = `$${s.revenue_collected.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById("kpi-owed").textContent = `$${s.total_owed.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById("kpi-overdue").textContent = `$${s.total_overdue_amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById("kpi-overdue-count").textContent = s.overdue_count;
+
+            // Populate Aging
+            document.getElementById("aging-1-30").textContent = `$${a.aging_1_to_30_days.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+            document.getElementById("aging-31-60").textContent = `$${a.aging_31_to_60_days.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+            document.getElementById("aging-60-plus").textContent = `$${a.aging_over_60_days.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+
+            // Render Charts
+            renderAgingChart(a);
+            renderPlanChart(data.plan_distribution);
+
+            // Populate Overdue Table
+            renderOverdueTable(data.overdue_invoices);
+
+            // Populate Recent Payments
+            renderRecentPayments(data.recent_payments);
+
+        } catch (err) {
+            console.error("Dashboard error:", err);
+            showToast("Error communicating with analytics engine.", "error");
+        }
+    }
+
+    function renderAgingChart(aging) {
+        const ctx = document.getElementById("agingChart").getContext("2d");
+        if (agingChartInstance) agingChartInstance.destroy();
+
+        agingChartInstance = new Chart(ctx, {
+            type: "bar",
+            data: {
+                labels: ["1 - 30 Days", "31 - 60 Days", "60+ Days"],
+                datasets: [{
+                    label: "Overdue Amount ($)",
+                    data: [aging.aging_1_to_30_days, aging.aging_31_to_60_days, aging.aging_over_60_days],
+                    backgroundColor: ["#f59e0b", "#ea580c", "#dc2626"],
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, ticks: { callback: v => `$${v}` } }
+                }
+            }
+        });
+    }
+
+    function renderPlanChart(plans) {
+        const ctx = document.getElementById("planChart").getContext("2d");
+        if (planChartInstance) planChartInstance.destroy();
+
+        planChartInstance = new Chart(ctx, {
+            type: "doughnut",
+            data: {
+                labels: plans.map(p => `${p.plan_name} (${p.interval})`),
+                datasets: [{
+                    data: plans.map(p => p.active_subscriptions),
+                    backgroundColor: ["#714B67", "#3b82f6", "#10b981", "#f59e0b", "#6366f1"],
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: "right" }
+                }
+            }
+        });
+    }
+
+    function renderOverdueTable(items) {
+        const tbody = document.getElementById("overdue-table-body");
+        if (!items || items.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: #16a34a; padding: 2rem; font-weight: 600;">🎉 No overdue invoices! All customer accounts are fully current.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = items.map(item => `
+            <tr>
+                <td style="font-weight: 700; color: var(--primary);">${item.invoice_number}</td>
+                <td>
+                    <div style="font-weight: 600;">${item.customer_name}</div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">${item.customer_email}</div>
+                </td>
+                <td>${item.due_date}</td>
+                <td>
+                    <span class="badge badge-overdue">${item.days_overdue} days</span>
+                </td>
+                <td>$${item.total_amount.toFixed(2)}</td>
+                <td style="color: #16a34a;">$${item.amount_paid.toFixed(2)}</td>
+                <td style="font-weight: 800; color: #dc2626;">$${item.outstanding_amount.toFixed(2)}</td>
+                <td>
+                    <button class="btn btn-secondary btn-sm" onclick="sendInvoiceReminder(${item.id})">📧 Chase</button>
+                    <a href="/invoices-view" class="btn btn-primary btn-sm">Record Pay</a>
+                </td>
+            </tr>
+        `).join("");
+    }
+
+    function renderRecentPayments(payments) {
+        const tbody = document.getElementById("payments-table-body");
+        if (!payments || payments.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2rem;">No recent payment records found.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = payments.map(p => `
+            <tr>
+                <td style="font-weight: 700;">${p.payment_number}</td>
+                <td style="color: var(--primary); font-weight: 600;">${p.invoice_number}</td>
+                <td>${p.customer_name}</td>
+                <td><span class="badge" style="background: #e2e8f0; color: #334155;">${p.method}</span></td>
+                <td>${p.payment_date}</td>
+                <td style="font-weight: 800; color: #16a34a;">+$${p.amount.toFixed(2)}</td>
+                <td style="font-size: 0.8rem; color: var(--text-muted);">${p.note || '-'}</td>
+            </tr>
+        `).join("");
+    }
+
+    async function sendInvoiceReminder(invoiceId) {
+        try {
+            const res = await authFetch(`/api/v1/invoices/${invoiceId}/send`, { method: "POST" });
+            const data = await res.json();
+            if (res.ok) {
+                showToast(`Payment chase reminder dispatched to customer!`, "success");
+            } else {
+                showToast(data.detail || "Failed to dispatch reminder.", "error");
+            }
+        } catch (e) {
+            showToast("Network error.", "error");
+        }
+    }
+
+    window.onPersonaChanged = () => {
+        loadDashboard();
+    };
+
+    document.addEventListener("DOMContentLoaded", () => {
+        loadDashboard();
+    });
+</script>
+{% endblock %}

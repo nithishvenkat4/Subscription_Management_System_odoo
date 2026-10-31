@@ -1,0 +1,335 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+        <div>
+            <div style="font-size: 0.85rem; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: 0.05em;">Scene 4 — Automated Recurring Invoicing</div>
+            <h1 style="font-size: 2.15rem; font-weight: 800; color: var(--text-main); letter-spacing: -0.03em;">Billing Day Headquarters &amp; Invoices</h1>
+            <p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 4px;">
+                Execute batch recurring billing for hundreds of due subscriptions. Zero double billing guarantee.
+            </p>
+        </div>
+
+        <!-- Billing Day Engine Trigger Widget -->
+        <div style="display: flex; align-items: center; gap: 0.75rem; background: #fff; padding: 0.5rem 1rem; border: 1px solid var(--light-border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);">
+            <div>
+                <label style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); display: block;">Run For Cycle Date</label>
+                <input type="date" id="billing-run-date" class="form-control" style="padding: 0.35rem 0.5rem; font-size: 0.8rem;">
+            </div>
+            <button class="btn btn-primary" onclick="triggerBillingDay()" style="height: fit-content; margin-top: 14px;">
+                ⚡ Run Billing Day Now
+            </button>
+        </div>
+    </div>
+
+    <!-- Live Execution Results Banner (Hidden by default) -->
+    <div id="billing-results-panel" class="panel" style="display: none; border-left: 4px solid var(--primary); background: #faf5f8;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="font-weight: 700; color: var(--primary); font-size: 1.05rem;" id="billing-run-summary-text">
+                Billing Run Finished
+            </div>
+            <button onclick="document.getElementById('billing-results-panel').style.display='none'" style="border: none; background: transparent; cursor: pointer; color: var(--text-muted); font-size: 1.25rem;">&times;</button>
+        </div>
+        <div style="display: flex; gap: 2rem; margin-top: 0.75rem; font-size: 0.9rem;" id="billing-stats-badges"></div>
+        <div style="margin-top: 0.75rem; max-height: 120px; overflow-y: auto; font-size: 0.8rem; background: #fff; padding: 0.75rem; border-radius: 6px; border: 1px solid var(--light-border);" id="billing-run-logs"></div>
+    </div>
+
+    <!-- Filters & Search -->
+    <div class="panel" style="padding: 1rem 1.5rem; margin-bottom: 1.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <button class="btn btn-secondary btn-sm filter-btn active" onclick="filterInvoices('all')">All Invoices</button>
+                <button class="btn btn-secondary btn-sm filter-btn" onclick="filterInvoices('draft')">Draft</button>
+                <button class="btn btn-secondary btn-sm filter-btn" onclick="filterInvoices('confirmed')">Confirmed</button>
+                <button class="btn btn-secondary btn-sm filter-btn" onclick="filterInvoices('paid')">Paid</button>
+                <button class="btn btn-secondary btn-sm filter-btn" onclick="filterInvoices('overdue')">⚠️ Overdue</button>
+            </div>
+            <div>
+                <input type="text" id="invoice-search" placeholder="Search invoice or customer..." class="form-control" style="width: 260px;" oninput="searchInvoices(this.value)">
+            </div>
+        </div>
+    </div>
+
+    <!-- Invoices Table -->
+    <div class="panel">
+        <div class="table-container">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Invoice #</th>
+                        <th>Subscription</th>
+                        <th>Issue Date</th>
+                        <th>Due Date</th>
+                        <th>Status</th>
+                        <th>Subtotal</th>
+                        <th>Tax</th>
+                        <th>Discount</th>
+                        <th>Total</th>
+                        <th>Balance Owed</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="invoices-tbody">
+                    <tr><td colspan="11" style="text-align: center; color: var(--text-muted); padding: 2rem;">Loading invoices...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Record Payment Modal -->
+<div class="modal-overlay" id="payment-modal">
+    <div class="modal-content">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px solid var(--light-border); padding-bottom: 0.75rem;">
+            <h3 style="font-weight: 800; color: var(--text-main);" id="pay-modal-title">Record Payment</h3>
+            <button onclick="closePaymentModal()" style="border: none; background: transparent; cursor: pointer; font-size: 1.5rem; color: var(--text-muted);">&times;</button>
+        </div>
+
+        <form id="payment-form" onsubmit="submitPayment(event)">
+            <input type="hidden" id="pay-invoice-id">
+            
+            <div class="form-group">
+                <label class="form-label">Invoice Reference</label>
+                <input type="text" id="pay-inv-number" class="form-control" readonly style="background: #f8fafc; font-weight: 700;">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Outstanding Balance ($)</label>
+                <input type="text" id="pay-outstanding" class="form-control" readonly style="background: #fef2f2; color: #dc2626; font-weight: 700;">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Payment Amount ($) *</label>
+                <input type="number" step="0.01" id="pay-amount" class="form-control" required placeholder="0.00">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Payment Method *</label>
+                <select id="pay-method" class="form-control" required>
+                    <option value="Credit Card">Credit Card</option>
+                    <option value="Bank Transfer">Bank Transfer (ACH / Wire)</option>
+                    <option value="Stripe">Stripe</option>
+                    <option value="Cash">Cash</option>
+                    <option value="Cheque">Cheque</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Payment Date</label>
+                <input type="date" id="pay-date" class="form-control">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Transaction Reference / Note</label>
+                <input type="text" id="pay-ref" class="form-control" placeholder="e.g. TXN-94812, Wire confirmation, etc.">
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
+                <button type="button" class="btn btn-secondary" onclick="closePaymentModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Confirm &amp; Record Payment</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let allInvoices = [];
+    let currentFilter = 'all';
+
+    async function loadInvoices() {
+        try {
+            const res = await authFetch("/api/v1/invoices");
+            if (!res.ok) {
+                showToast("Failed to fetch invoices. Please log in.", "error");
+                return;
+            }
+            allInvoices = await res.json();
+            renderInvoicesTable();
+        } catch (e) {
+            console.error(e);
+            showToast("Network error loading invoices.", "error");
+        }
+    }
+
+    function filterInvoices(status) {
+        currentFilter = status;
+        document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+        event.target.classList.add("active");
+        renderInvoicesTable();
+    }
+
+    function searchInvoices(term) {
+        const q = term.toLowerCase().trim();
+        const filtered = allInvoices.filter(inv => 
+            inv.invoice_number.toLowerCase().includes(q) ||
+            inv.payment_terms.toLowerCase().includes(q)
+        );
+        renderInvoicesTable(filtered);
+    }
+
+    function renderInvoicesTable(list = null) {
+        let items = list !== null ? list : allInvoices;
+        
+        if (currentFilter === 'overdue') {
+            items = items.filter(inv => inv.is_overdue);
+        } else if (currentFilter !== 'all') {
+            items = items.filter(inv => inv.status === currentFilter);
+        }
+
+        const tbody = document.getElementById("invoices-tbody");
+        if (!items || items.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="11" style="text-align: center; color: var(--text-muted); padding: 2rem;">No invoices match the selected filter.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = items.map(inv => {
+            let statusBadge = `<span class="badge badge-${inv.status}">${inv.status}</span>`;
+            if (inv.is_overdue) {
+                statusBadge += ` <span class="badge badge-overdue" style="margin-left: 4px;">Overdue</span>`;
+            }
+
+            return `
+            <tr>
+                <td style="font-weight: 800; color: var(--primary);">${inv.invoice_number}</td>
+                <td><span style="font-size: 0.8rem; background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">Sub #${inv.subscription_id || 'Manual'}</span></td>
+                <td>${inv.issue_date}</td>
+                <td>${inv.due_date}</td>
+                <td>${statusBadge}</td>
+                <td>$${inv.subtotal.toFixed(2)}</td>
+                <td style="color: var(--text-muted);">+$${inv.tax_amount.toFixed(2)}</td>
+                <td style="color: #16a34a;">-${inv.discount_amount > 0 ? `$${inv.discount_amount.toFixed(2)}` : '$0.00'}</td>
+                <td style="font-weight: 800; color: var(--text-main);">$${inv.total_amount.toFixed(2)}</td>
+                <td style="font-weight: 800; color: ${inv.outstanding_amount > 0 ? '#dc2626' : '#16a34a'};">
+                    $${inv.outstanding_amount.toFixed(2)}
+                </td>
+                <td>
+                    <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                        ${inv.status === 'draft' ? `<button class="btn btn-primary btn-sm" onclick="confirmInvoice(${inv.id})">Confirm</button>` : ''}
+                        ${inv.outstanding_amount > 0 ? `<button class="btn btn-success btn-sm" onclick="openPaymentModal(${inv.id}, '${inv.invoice_number}', ${inv.outstanding_amount})">Pay</button>` : ''}
+                        <button class="btn btn-secondary btn-sm" onclick="sendInvoice(${inv.id})" title="Send via email">📧</button>
+                        <a href="/api/v1/invoices/${inv.id}/print" target="_blank" class="btn btn-secondary btn-sm" title="Print / PDF Invoice">🖨️ PDF</a>
+                    </div>
+                </td>
+            </tr>
+            `;
+        }).join("");
+    }
+
+    async function triggerBillingDay() {
+        const targetDate = document.getElementById("billing-run-date").value;
+        const url = targetDate ? `/api/v1/invoices/trigger-billing-run?target_date=${targetDate}` : `/api/v1/invoices/trigger-billing-run`;
+
+        showToast("Executing automated Billing Day run...", "info");
+        try {
+            const res = await authFetch(url, { method: "POST" });
+            const data = await res.json();
+            if (res.ok) {
+                showToast(`Billing Day Finished: ${data.created} invoices created, ${data.skipped} skipped (already billed).`, "success");
+                
+                // Show Banner
+                const panel = document.getElementById("billing-results-panel");
+                panel.style.display = "block";
+                document.getElementById("billing-run-summary-text").textContent = `Billing Day Run Complete (Zero Double Billing Enforced)`;
+                document.getElementById("billing-stats-badges").innerHTML = `
+                    <div><strong>Evaluated:</strong> ${data.evaluated}</div>
+                    <div style="color: #16a34a;"><strong>Invoices Created:</strong> ${data.created}</div>
+                    <div style="color: #b45309;"><strong>Skipped (Protected):</strong> ${data.skipped}</div>
+                    <div style="color: #dc2626;"><strong>Errors:</strong> ${data.errors}</div>
+                `;
+                document.getElementById("billing-run-logs").innerHTML = data.log.map(l => `<div>• ${l}</div>`).join("");
+
+                loadInvoices();
+            } else {
+                showToast(data.detail || "Error triggering billing day.", "error");
+            }
+        } catch (e) {
+            showToast("Network error executing billing day.", "error");
+        }
+    }
+
+    async function confirmInvoice(id) {
+        try {
+            const res = await authFetch(`/api/v1/invoices/${id}/confirm`, { method: "POST" });
+            if (res.ok) {
+                showToast("Invoice confirmed successfully!", "success");
+                loadInvoices();
+            } else {
+                const data = await res.json();
+                showToast(data.detail || "Failed to confirm invoice.", "error");
+            }
+        } catch (e) {
+            showToast("Network error.", "error");
+        }
+    }
+
+    async function sendInvoice(id) {
+        try {
+            const res = await authFetch(`/api/v1/invoices/${id}/send`, { method: "POST" });
+            const data = await res.json();
+            if (res.ok) {
+                showToast(`Invoice sent to customer: ${data.recipient}`, "success");
+            } else {
+                showToast(data.detail || "Failed to send invoice.", "error");
+            }
+        } catch (e) {
+            showToast("Network error.", "error");
+        }
+    }
+
+    function openPaymentModal(invoiceId, invoiceNumber, outstanding) {
+        document.getElementById("pay-invoice-id").value = invoiceId;
+        document.getElementById("pay-inv-number").value = invoiceNumber;
+        document.getElementById("pay-outstanding").value = `$${outstanding.toFixed(2)}`;
+        document.getElementById("pay-amount").value = outstanding.toFixed(2);
+        document.getElementById("pay-amount").max = outstanding;
+        document.getElementById("pay-date").value = new Date().toISOString().split("T")[0];
+        document.getElementById("payment-modal").classList.add("active");
+    }
+
+    function closePaymentModal() {
+        document.getElementById("payment-modal").classList.remove("active");
+    }
+
+    async function submitPayment(e) {
+        e.preventDefault();
+        const invoiceId = parseInt(document.getElementById("pay-invoice-id").value);
+        const amount = parseFloat(document.getElementById("pay-amount").value);
+        const method = document.getElementById("pay-method").value;
+        const payDate = document.getElementById("pay-date").value;
+        const ref = document.getElementById("pay-ref").value;
+
+        try {
+            const res = await authFetch("/api/v1/payments", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    invoice_id: invoiceId,
+                    amount: amount,
+                    payment_method: method,
+                    payment_date: payDate,
+                    transaction_reference: ref
+                })
+            });
+
+            if (res.ok) {
+                showToast(`Payment of $${amount.toFixed(2)} recorded successfully!`, "success");
+                closePaymentModal();
+                loadInvoices();
+            } else {
+                const data = await res.json();
+                showToast(data.detail || "Payment failed.", "error");
+            }
+        } catch (err) {
+            showToast("Network error recording payment.", "error");
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        document.getElementById("billing-run-date").value = new Date().toISOString().split("T")[0];
+        loadInvoices();
+    });
+</script>
+{% endblock %}

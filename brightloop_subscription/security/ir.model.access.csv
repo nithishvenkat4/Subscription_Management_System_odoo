@@ -1,0 +1,9 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_brightloop_subscription_plan_admin,brightloop.subscription.plan.admin,model_brightloop_subscription_plan,group_brightloop_admin,1,1,1,1
+access_brightloop_subscription_plan_staff,brightloop.subscription.plan.staff,model_brightloop_subscription_plan,group_brightloop_staff,1,0,0,0
+access_brightloop_discount_rule_admin,brightloop.discount.rule.admin,model_brightloop_discount_rule,group_brightloop_admin,1,1,1,1
+access_brightloop_discount_rule_staff,brightloop.discount.rule.staff,model_brightloop_discount_rule,group_brightloop_staff,1,0,0,0
+access_brightloop_subscription_staff,brightloop.subscription.staff,model_brightloop_subscription,group_brightloop_staff,1,1,1,1
+access_brightloop_subscription_line_staff,brightloop.subscription.line.staff,model_brightloop_subscription_line,group_brightloop_staff,1,1,1,1
+access_brightloop_subscription_portal,brightloop.subscription.portal,model_brightloop_subscription,base.group_portal,1,0,0,0
+access_brightloop_subscription_line_portal,brightloop.subscription.line.portal,model_brightloop_subscription_line,base.group_portal,1,0,0,0

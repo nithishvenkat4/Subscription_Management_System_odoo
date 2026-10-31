@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title or "Brightloop Software — Subscription Management System" }}</title>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Chart.js for High Performance Finance Dashboard -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="/static/style.css">
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <!-- Top Navigation Bar -->
+    <header class="navbar">
+        <a href="/" class="brand-container">
+            <div class="brand-logo">B</div>
+            <div>
+                <span class="brand-text">Brightloop</span>
+                <span class="brand-badge">SaaS Billing</span>
+            </div>
+        </a>
+
+        <nav>
+            <ul class="nav-links">
+                <li><a href="/dashboard" class="nav-link" id="nav-dashboard">📊 Finance Lead</a></li>
+                <li><a href="/subscriptions-view" class="nav-link" id="nav-subs">📝 Subscriptions</a></li>
+                <li><a href="/invoices-view" class="nav-link" id="nav-invoices">⚡ Billing Day</a></li>
+                <li><a href="/payments-view" class="nav-link" id="nav-payments">💳 Payments</a></li>
+                <li><a href="/catalog-view" class="nav-link" id="nav-catalog">📦 Plans &amp; Rules</a></li>
+                <li><a href="/portal" class="nav-link" id="nav-portal">👤 Customer Portal</a></li>
+            </ul>
+        </nav>
+
+        <div style="display: flex; align-items: center; gap: 1rem;">
+            <!-- Interactive Role Switcher -->
+            <div class="role-switcher" title="Instant Persona Switcher for Evaluation">
+                <button class="role-btn active" id="role-admin" onclick="switchPersona('admin')">Admin</button>
+                <button class="role-btn" id="role-staff" onclick="switchPersona('staff')">Staff</button>
+                <button class="role-btn" id="role-customer" onclick="switchPersona('customer')">Customer</button>
+            </div>
+
+            <div id="user-display" style="font-size: 0.8rem; font-weight: 600; color: var(--primary);">
+                <span id="current-user-name">Sarah Administrator</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Global Toast Notifications -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <script>
+        // Demo Persona Credentials for instant evaluation
+        const PERSONAS = {
+            admin: {
+                email: "admin@brightloop.com",
+                name: "Sarah Administrator (Admin)",
+                role: "admin",
+                token: null
+            },
+            staff: {
+                email: "staff@brightloop.com",
+                name: "Alex SalesRep (Staff)",
+                role: "staff",
+                token: null
+            },
+            customer: {
+                email: "customer@acme.com",
+                name: "John Acme (Customer)",
+                role: "customer",
+                token: null
+            }
+        };
+
+        let currentPersona = localStorage.getItem("brightloop_persona") || "admin";
+
+        async function switchPersona(role) {
+            currentPersona = role;
+            localStorage.setItem("brightloop_persona", role);
+            
+            document.querySelectorAll(".role-btn").forEach(b => b.classList.remove("active"));
+            const btn = document.getElementById(`role-${role}`);
+            if (btn) btn.classList.add("active");
+
+            const persona = PERSONAS[role];
+            document.getElementById("current-user-name").textContent = persona.name;
+
+            // Auto-login persona to get fresh JWT token
+            try {
+                const passwords = {
+                    admin: "BrightAdmin@2026",
+                    staff: "BrightStaff@2026",
+                    customer: "CustomerAcme@2026"
+                };
+                const res = await fetch("/api/v1/auth/login", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email: persona.email, password: passwords[role] })
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    localStorage.setItem("brightloop_token", data.access_token);
+                    showToast(`Switched active persona to ${persona.name}`, "info");
+                    if (window.onPersonaChanged) {
+                        window.onPersonaChanged(role);
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to switch persona token:", err);
+            }
+        }
+
+        function showToast(message, type = "info") {
+            const container = document.getElementById("toast-container");
+            const toast = document.createElement("div");
+            toast.className = "toast";
+            
+            let icon = "ℹ️";
+            if (type === "success") icon = "✅";
+            if (type === "error") icon = "❌";
+            if (type === "warning") icon = "⚠️";
+
+            toast.innerHTML = `<span>${icon}</span> <span>${message}</span>`;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = "0";
+                toast.style.transition = "opacity 0.3s ease";
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        // Initialize active nav link & persona
+        document.addEventListener("DOMContentLoaded", () => {
+            const path = window.location.pathname;
+            document.querySelectorAll(".nav-link").forEach(link => {
+                if (link.getAttribute("href") === path) {
+                    link.classList.add("active");
+                }
+            });
+            switchPersona(currentPersona);
+        });
+
+        // Helper authenticated fetch
+        async function authFetch(url, options = {}) {
+            const token = localStorage.getItem("brightloop_token");
+            options.headers = options.headers || {};
+            if (token) {
+                options.headers["Authorization"] = `Bearer ${token}`;
+            }
+            return fetch(url, options);
+        }
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

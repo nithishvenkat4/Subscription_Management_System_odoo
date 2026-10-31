@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container" style="max-width: 500px; padding-top: 4rem;">
+    <div class="panel">
+        <div style="text-align: center; margin-bottom: 2rem;">
+            <div class="brand-logo" style="margin: 0 auto 1rem auto; width: 48px; height: 48px; font-size: 1.5rem;">B</div>
+            <h2 style="font-size: 1.5rem; font-weight: 800; color: var(--text-main);">Sign In to Brightloop</h2>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">
+                Enter your credentials or choose a quick demo role below.
+            </p>
+        </div>
+
+        <!-- Quick One-Click Demo Personas -->
+        <div style="background: #faf5f8; border: 1px solid #ebdbe7; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem;">
+            <div style="font-size: 0.75rem; font-weight: 700; color: var(--primary); text-transform: uppercase; margin-bottom: 8px;">
+                ⚡ 1-Click Evaluation Sign In:
+            </div>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="quickFill('admin@brightloop.com', 'BrightAdmin@2026')">👑 Admin</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="quickFill('staff@brightloop.com', 'BrightStaff@2026')">💼 Staff</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="quickFill('customer@acme.com', 'CustomerAcme@2026')">👤 Customer</button>
+            </div>
+        </div>
+
+        <form onsubmit="handleLogin(event)">
+            <div class="form-group">
+                <label class="form-label">Email Address</label>
+                <input type="email" id="login-email" class="form-control" required placeholder="admin@brightloop.com">
+            </div>
+
+            <div class="form-group">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                    <label class="form-label" style="margin-bottom: 0;">Password</label>
+                    <a href="/reset-password" style="font-size: 0.75rem; color: var(--primary); font-weight: 600;">Forgot password?</a>
+                </div>
+                <input type="password" id="login-password" class="form-control" required placeholder="••••••••••••">
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem; padding: 0.75rem;">
+                Sign In
+            </button>
+        </form>
+
+        <div style="text-align: center; margin-top: 1.5rem; font-size: 0.85rem; color: var(--text-muted);">
+            Need an account? <a href="/register" style="color: var(--primary); font-weight: 600;">Sign up as a customer</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function quickFill(email, pw) {
+        document.getElementById("login-email").value = email;
+        document.getElementById("login-password").value = pw;
+    }
+
+    async function handleLogin(e) {
+        e.preventDefault();
+        const email = document.getElementById("login-email").value;
+        const password = document.getElementById("login-password").value;
+
+        try {
+            const res = await fetch("/api/v1/auth/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, password })
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                localStorage.setItem("brightloop_token", data.access_token);
+                localStorage.setItem("brightloop_persona", data.user.role);
+                showToast(`Welcome back, ${data.user.full_name}!`, "success");
+
+                if (data.user.role === 'customer') {
+                    window.location.href = "/portal";
+                } else {
+                    window.location.href = "/dashboard";
+                }
+            } else {
+                const err = await res.json();
+                showToast(err.detail || "Authentication failed.", "error");
+            }
+        } catch (err) {
+            showToast("Network error.", "error");
+        }
+    }
+</script>
+{% endblock %}

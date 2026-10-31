@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container" style="max-width: 500px; padding-top: 4rem;">
+    <div class="panel">
+        <div style="text-align: center; margin-bottom: 2rem;">
+            <div class="brand-logo" style="margin: 0 auto 1rem auto; width: 48px; height: 48px; font-size: 1.5rem;">B</div>
+            <h2 style="font-size: 1.5rem; font-weight: 800; color: var(--text-main);">Create Your Brightloop Account</h2>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">
+                Find software plans and manage subscriptions through the customer portal.
+            </p>
+        </div>
+
+        <form onsubmit="handleRegister(event)">
+            <div class="form-group">
+                <label class="form-label">Full Name *</label>
+                <input type="text" id="reg-name" class="form-control" required placeholder="John Doe">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Email Address *</label>
+                <input type="email" id="reg-email" class="form-control" required placeholder="john@example.com">
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">Each email can belong to only one account.</div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Company Name</label>
+                <input type="text" id="reg-company" class="form-control" placeholder="Acme Software Corp">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Password *</label>
+                <input type="password" id="reg-password" class="form-control" required placeholder="••••••••••••" oninput="checkPasswordStrength(this.value)">
+                
+                <!-- Live Password Rules Checklist (Scene 1) -->
+                <div style="background: #f8fafc; border: 1px solid var(--light-border); border-radius: 8px; padding: 0.75rem; margin-top: 0.5rem; font-size: 0.75rem;">
+                    <div style="font-weight: 700; color: var(--text-muted); margin-bottom: 4px;">Brightloop Password Security Rules:</div>
+                    <div id="rule-len" style="color: #94a3b8;">❌ More than 8 characters long (at least 9 chars)</div>
+                    <div id="rule-upper" style="color: #94a3b8;">❌ At least one uppercase letter (A-Z)</div>
+                    <div id="rule-lower" style="color: #94a3b8;">❌ At least one lowercase letter (a-z)</div>
+                    <div id="rule-special" style="color: #94a3b8;">❌ At least one special character (!@#$%^&amp;*)</div>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem; padding: 0.75rem;">
+                Create Account
+            </button>
+        </form>
+
+        <div style="text-align: center; margin-top: 1.5rem; font-size: 0.85rem; color: var(--text-muted);">
+            Already have an account? <a href="/login" style="color: var(--primary); font-weight: 600;">Sign in here</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function checkPasswordStrength(pw) {
+        const hasLen = pw.length > 8;
+        const hasUpper = /[A-Z]/.test(pw);
+        const hasLower = /[a-z]/.test(pw);
+        const hasSpecial = /[!@#$%^&*(),.?":{}|<>\-_=+[\]\\;/`~]/.test(pw);
+
+        updateRule("rule-len", hasLen, "More than 8 characters long");
+        updateRule("rule-upper", hasUpper, "At least one uppercase letter (A-Z)");
+        updateRule("rule-lower", hasLower, "At least one lowercase letter (a-z)");
+        updateRule("rule-special", hasSpecial, "At least one special character (!@#$%^&*)");
+    }
+
+    function updateRule(elementId, isValid, text) {
+        const el = document.getElementById(elementId);
+        if (isValid) {
+            el.innerHTML = `✅ ${text}`;
+            el.style.color = "#16a34a";
+            el.style.fontWeight = "600";
+        } else {
+            el.innerHTML = `❌ ${text}`;
+            el.style.color = "#94a3b8";
+            el.style.fontWeight = "normal";
+        }
+    }
+
+    async function handleRegister(e) {
+        e.preventDefault();
+        const payload = {
+            full_name: document.getElementById("reg-name").value,
+            email: document.getElementById("reg-email").value,
+            company_name: document.getElementById("reg-company").value,
+            password: document.getElementById("reg-password").value
+        };
+
+        try {
+            const res = await fetch("/api/v1/auth/register", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                showToast("Account created successfully! Please sign in.", "success");
+                setTimeout(() => window.location.href = "/login", 1200);
+            } else {
+                const data = await res.json();
+                showToast(data.detail || "Registration failed.", "error");
+            }
+        } catch (err) {
+            showToast("Network error.", "error");
+        }
+    }
+</script>
+{% endblock %}

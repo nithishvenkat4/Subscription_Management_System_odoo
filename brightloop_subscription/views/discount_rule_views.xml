@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Discount Rules Tree View -->
+    <record id="view_brightloop_discount_rule_tree" model="ir.ui.view">
+        <field name="name">brightloop.discount.rule.tree</field>
+        <field name="model">brightloop.discount.rule</field>
+        <field name="arch" type="xml">
+            <tree string="Discount Rules">
+                <field name="name"/>
+                <field name="discount_type"/>
+                <field name="discount_value"/>
+                <field name="min_quantity"/>
+                <field name="min_purchase_amount"/>
+                <field name="scope"/>
+                <field name="used_count"/>
+                <field name="max_uses"/>
+                <field name="start_date"/>
+                <field name="end_date"/>
+                <field name="active" widget="boolean_toggle"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Discount Rules Form View -->
+    <record id="view_brightloop_discount_rule_form" model="ir.ui.view">
+        <field name="name">brightloop.discount.rule.form</field>
+        <field name="model">brightloop.discount.rule</field>
+        <field name="arch" type="xml">
+            <form string="Discount Rule">
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name" class="oe_edit_only"/>
+                        <h1><field name="name" placeholder="e.g. Volume License 15%, Startup $100 Credit"/></h1>
+                    </div>
+                    <group>
+                        <group string="Benefit">
+                            <field name="discount_type"/>
+                            <field name="discount_value"/>
+                            <field name="scope"/>
+                            <field name="product_id" invisible="scope != 'specific_products'"/>
+                        </group>
+                        <group string="Eligibility Thresholds">
+                            <field name="min_quantity"/>
+                            <field name="min_purchase_amount"/>
+                            <field name="active"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group string="Validity Period">
+                            <field name="start_date"/>
+                            <field name="end_date"/>
+                        </group>
+                        <group string="Usage Ceilings">
+                            <field name="max_uses"/>
+                            <field name="used_count" readonly="1"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Action -->
+    <record id="action_brightloop_discount_rule" model="ir.actions.act_window">
+        <field name="name">Discount Rules</field>
+        <field name="res_model">brightloop.discount.rule</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+</odoo>

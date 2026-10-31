@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+        <div>
+            <div style="font-size: 0.85rem; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: 0.05em;">Customer Self-Service Portal</div>
+            <h1 style="font-size: 2.15rem; font-weight: 800; color: var(--text-main); letter-spacing: -0.03em;">My Brightloop Subscriptions &amp; Billing</h1>
+            <p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 4px;">
+                Manage your active software subscriptions, review billing history, and download invoice PDFs without emailing support.
+            </p>
+        </div>
+
+        <div style="background: #f1f5f9; padding: 0.5rem 1rem; border-radius: 9999px; font-size: 0.85rem; font-weight: 600;">
+            Logged in as: <strong id="portal-customer-name">John Acme</strong> (<span id="portal-customer-email">customer@acme.com</span>)
+        </div>
+    </div>
+
+    <!-- Customer's Active Subscriptions Panel -->
+    <div class="panel">
+        <div class="panel-header">
+            <div class="panel-title">📦 My Subscriptions</div>
+            <span class="badge badge-active">Protected Tenant View</span>
+        </div>
+        <div class="table-container">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Contract #</th>
+                        <th>Cadence</th>
+                        <th>Start Date</th>
+                        <th>Next Renewal Date</th>
+                        <th>Recurring Total</th>
+                        <th>Status</th>
+                        <th>Self-Service Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="portal-subs-tbody">
+                    <tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2rem;">Loading your subscriptions...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Customer's Invoices Panel -->
+    <div class="panel">
+        <div class="panel-header">
+            <div class="panel-title">🧾 My Invoices &amp; Payment Receipts</div>
+        </div>
+        <div class="table-container">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Invoice #</th>
+                        <th>Issue Date</th>
+                        <th>Due Date</th>
+                        <th>Total Amount</th>
+                        <th>Amount Paid</th>
+                        <th>Balance Due</th>
+                        <th>Status</th>
+                        <th>PDF &amp; Payment</th>
+                    </tr>
+                </thead>
+                <tbody id="portal-invoices-tbody">
+                    <tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 2rem;">Loading your invoices...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    async function loadPortalData() {
+        try {
+            // Fetch customer profile
+            const meRes = await authFetch("/api/v1/auth/me");
+            if (meRes.ok) {
+                const user = await meRes.json();
+                document.getElementById("portal-customer-name").textContent = user.full_name;
+                document.getElementById("portal-customer-email").textContent = user.email;
+            }
+
+            // Fetch subscriptions (API automatically enforces customer tenant isolation)
+            const subsRes = await authFetch("/api/v1/subscriptions");
+            if (subsRes.ok) {
+                const subs = await subsRes.json();
+                renderPortalSubs(subs);
+            }
+
+            // Fetch invoices
+            const invRes = await authFetch("/api/v1/invoices");
+            if (invRes.ok) {
+                const invs = await invRes.json();
+                renderPortalInvoices(invs);
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    function renderPortalSubs(subs) {
+        const tbody = document.getElementById("portal-subs-tbody");
+        if (!subs || subs.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2rem;">You do not currently have any active subscriptions.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = subs.map(s => `
+            <tr>
+                <td style="font-weight: 800; color: var(--primary);">${s.subscription_number}</td>
+                <td>Monthly / Annual</td>
+                <td>${s.start_date}</td>
+                <td><strong>${s.next_billing_date}</strong></td>
+                <td style="font-weight: 800;">$${s.recurring_total.toFixed(2)}</td>
+                <td><span class="badge badge-${s.status}">${s.status}</span></td>
+                <td>
+                    ${s.status === 'active' && s.pausable ? `<button class="btn btn-secondary btn-sm" onclick="portalPause(${s.id})">Pause</button>` : ''}
+                    ${s.status === 'paused' ? `<button class="btn btn-success btn-sm" onclick="portalResume(${s.id})">Resume</button>` : ''}
+                    ${s.status === 'active' && s.closable_early ? `<button class="btn btn-danger btn-sm" onclick="portalClose(${s.id})">Cancel Subscription</button>` : ''}
+                </td>
+            </tr>
+        `).join("");
+    }
+
+    function renderPortalInvoices(invs) {
+        const tbody = document.getElementById("portal-invoices-tbody");
+        if (!invs || invs.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 2rem;">No invoices on your account.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = invs.map(inv => `
+            <tr>
+                <td style="font-weight: 800; color: var(--primary);">${inv.invoice_number}</td>
+                <td>${inv.issue_date}</td>
+                <td>${inv.due_date}</td>
+                <td style="font-weight: 700;">$${inv.total_amount.toFixed(2)}</td>
+                <td style="color: #16a34a;">$${inv.amount_paid.toFixed(2)}</td>
+                <td style="font-weight: 800; color: ${inv.outstanding_amount > 0 ? '#dc2626' : '#16a34a'};">
+                    $${inv.outstanding_amount.toFixed(2)}
+                </td>
+                <td><span class="badge badge-${inv.status}">${inv.status}</span></td>
+                <td>
+                    <div style="display: flex; gap: 6px;">
+                        <a href="/api/v1/invoices/${inv.id}/print" target="_blank" class="btn btn-secondary btn-sm">🖨️ PDF</a>
+                        ${inv.outstanding_amount > 0 ? `<button class="btn btn-primary btn-sm" onclick="alert('Proceeding to secure checkout for $' + ${inv.outstanding_amount.toFixed(2)})">💳 Pay Online</button>` : ''}
+                    </div>
+                </td>
+            </tr>
+        `).join("");
+    }
+
+    async function portalPause(id) {
+        await authFetch(`/api/v1/subscriptions/${id}/status`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: "paused" })
+        });
+        showToast("Your subscription has been paused.", "info");
+        loadPortalData();
+    }
+
+    async function portalResume(id) {
+        await authFetch(`/api/v1/subscriptions/${id}/status`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: "active" })
+        });
+        showToast("Your subscription has been resumed!", "success");
+        loadPortalData();
+    }
+
+    async function portalClose(id) {
+        if (!confirm("Are you sure you want to cancel this subscription?")) return;
+        await authFetch(`/api/v1/subscriptions/${id}/status`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: "closed" })
+        });
+        showToast("Subscription cancelled.", "warning");
+        loadPortalData();
+    }
+
+    window.onPersonaChanged = () => {
+        loadPortalData();
+    };
+
+    document.addEventListener("DOMContentLoaded", () => {
+        loadPortalData();
+    });
+</script>
+{% endblock %}

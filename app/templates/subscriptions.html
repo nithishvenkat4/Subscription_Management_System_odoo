@@ -1,0 +1,332 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+        <div>
+            <div style="font-size: 0.85rem; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: 0.05em;">Scene 3 — Quotation Templates &amp; Subscriptions</div>
+            <h1 style="font-size: 2.15rem; font-weight: 800; color: var(--text-main); letter-spacing: -0.03em;">Subscription Contracts &amp; Quotes</h1>
+            <p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 4px;">
+                Rapid quote generation from pre-configured templates, moving through the 5-stage lifecycle.
+            </p>
+        </div>
+
+        <button class="btn btn-primary" onclick="openNewSubscriptionModal()">
+            ➕ New Quote / Subscription
+        </button>
+    </div>
+
+    <!-- Lifecycle Status Filter Pills -->
+    <div class="panel" style="padding: 1rem 1.5rem; margin-bottom: 1.5rem;">
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <button class="btn btn-secondary btn-sm sub-filter-btn active" onclick="filterSubs('all')">All Contracts</button>
+            <button class="btn btn-secondary btn-sm sub-filter-btn" onclick="filterSubs('draft')">Draft</button>
+            <button class="btn btn-secondary btn-sm sub-filter-btn" onclick="filterSubs('quotation')">Quotation</button>
+            <button class="btn btn-secondary btn-sm sub-filter-btn" onclick="filterSubs('confirmed')">Confirmed</button>
+            <button class="btn btn-secondary btn-sm sub-filter-btn" onclick="filterSubs('active')">Active (Recurring)</button>
+            <button class="btn btn-secondary btn-sm sub-filter-btn" onclick="filterSubs('paused')">Paused</button>
+            <button class="btn btn-secondary btn-sm sub-filter-btn" onclick="filterSubs('closed')">Closed</button>
+        </div>
+    </div>
+
+    <!-- Subscriptions Table -->
+    <div class="panel">
+        <div class="table-container">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Contract #</th>
+                        <th>Customer</th>
+                        <th>Plan</th>
+                        <th>Start Date</th>
+                        <th>Next Billing</th>
+                        <th>Recurring Total</th>
+                        <th>Status</th>
+                        <th>Policies</th>
+                        <th>State Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="subs-tbody">
+                    <tr><td colspan="9" style="text-align: center; color: var(--text-muted); padding: 2rem;">Loading subscriptions...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- New Subscription / Quote Modal -->
+<div class="modal-overlay" id="sub-modal">
+    <div class="modal-content" style="max-width: 700px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px solid var(--light-border); padding-bottom: 0.75rem;">
+            <h3 style="font-weight: 800; color: var(--text-main);">Create Quote or Subscription</h3>
+            <button onclick="closeSubModal()" style="border: none; background: transparent; cursor: pointer; font-size: 1.5rem; color: var(--text-muted);">&times;</button>
+        </div>
+
+        <form id="new-sub-form" onsubmit="submitNewSubscription(event)">
+            <div style="background: #faf5f8; border: 1px dashed var(--primary); padding: 1rem; border-radius: 8px; margin-bottom: 1.25rem;">
+                <label class="form-label" style="color: var(--primary);">⚡ Rapid Start from Quotation Template (Optional)</label>
+                <select id="sub-template-select" class="form-control" onchange="onTemplateSelected(this.value)">
+                    <option value="">-- Start from scratch --</option>
+                </select>
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">
+                    Selecting a template automatically populates the plan, line items, and validity duration.
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label class="form-label">Customer *</label>
+                    <select id="sub-customer" class="form-control" required></select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Recurring Plan *</label>
+                    <select id="sub-plan" class="form-control" required></select>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label class="form-label">Start Date *</label>
+                    <input type="date" id="sub-start-date" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Payment Terms</label>
+                    <select id="sub-payment-terms" class="form-control">
+                        <option value="Immediate Payment">Immediate Payment</option>
+                        <option value="Net 15">Net 15 Days</option>
+                        <option value="Net 30">Net 30 Days</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Apply Discount Rule (Optional)</label>
+                <select id="sub-discount" class="form-control">
+                    <option value="">-- No Discount --</option>
+                </select>
+            </div>
+
+            <!-- Line Items -->
+            <div style="margin-top: 1rem; border-top: 1px solid var(--light-border); padding-top: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                    <label class="form-label" style="margin-bottom: 0;">Subscription Products &amp; Variants</label>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="addLineRow()">+ Add Product</button>
+                </div>
+                <div id="sub-lines-container"></div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
+                <button type="button" class="btn btn-secondary" onclick="closeSubModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create Draft Quote</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let allSubs = [];
+    let currentFilter = 'all';
+    let availablePlans = [];
+    let availableProducts = [];
+    let availableTemplates = [];
+    let availableDiscounts = [];
+
+    async function loadSubscriptions() {
+        try {
+            const res = await authFetch("/api/v1/subscriptions");
+            if (res.ok) {
+                allSubs = await res.json();
+                renderSubsTable();
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    function filterSubs(status) {
+        currentFilter = status;
+        document.querySelectorAll(".sub-filter-btn").forEach(b => b.classList.remove("active"));
+        event.target.classList.add("active");
+        renderSubsTable();
+    }
+
+    function renderSubsTable() {
+        let items = allSubs;
+        if (currentFilter !== 'all') {
+            items = items.filter(s => s.status === currentFilter);
+        }
+
+        const tbody = document.getElementById("subs-tbody");
+        if (!items || items.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text-muted); padding: 2rem;">No subscriptions found in '${currentFilter}'.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = items.map(sub => {
+            return `
+            <tr>
+                <td style="font-weight: 800; color: var(--primary);">${sub.subscription_number}</td>
+                <td><span style="font-weight: 600;">Customer #${sub.customer_id}</span></td>
+                <td>Plan #${sub.plan_id}</td>
+                <td>${sub.start_date}</td>
+                <td><strong>${sub.next_billing_date}</strong></td>
+                <td style="font-weight: 800; color: var(--text-main);">$${sub.recurring_total.toFixed(2)}</td>
+                <td><span class="badge badge-${sub.status}">${sub.status}</span></td>
+                <td style="font-size: 0.75rem; color: var(--text-muted);">
+                    ${sub.pausable ? '⏸️ ' : ''}${sub.closable_early ? '🔓 ' : '🔒 '}${sub.auto_close_on_end ? '⏰ ' : ''}
+                </td>
+                <td>
+                    <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                        ${sub.status === 'draft' ? `<button class="btn btn-secondary btn-sm" onclick="updateSubStatus(${sub.id}, 'quotation')">Send Quote</button>` : ''}
+                        ${sub.status === 'quotation' ? `<button class="btn btn-primary btn-sm" onclick="updateSubStatus(${sub.id}, 'confirmed')">Confirm</button>` : ''}
+                        ${sub.status === 'confirmed' ? `<button class="btn btn-success btn-sm" onclick="updateSubStatus(${sub.id}, 'active')">Activate</button>` : ''}
+                        ${sub.status === 'active' && sub.pausable ? `<button class="btn btn-secondary btn-sm" onclick="updateSubStatus(${sub.id}, 'paused')">Pause</button>` : ''}
+                        ${sub.status === 'paused' ? `<button class="btn btn-success btn-sm" onclick="updateSubStatus(${sub.id}, 'active')">Resume</button>` : ''}
+                        ${sub.status !== 'closed' ? `<button class="btn btn-danger btn-sm" onclick="updateSubStatus(${sub.id}, 'closed')">Close</button>` : ''}
+                    </div>
+                </td>
+            </tr>
+            `;
+        }).join("");
+    }
+
+    async function updateSubStatus(id, newStatus) {
+        try {
+            const res = await authFetch(`/api/v1/subscriptions/${id}/status`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status: newStatus })
+            });
+            if (res.ok) {
+                showToast(`Subscription status updated to '${newStatus}'!`, "success");
+                loadSubscriptions();
+            } else {
+                const data = await res.json();
+                showToast(data.detail || "Cannot transition status.", "error");
+            }
+        } catch (e) {
+            showToast("Network error updating status.", "error");
+        }
+    }
+
+    async function openNewSubscriptionModal() {
+        // Load dependencies
+        const [plansRes, prodsRes, tmplRes, custRes, discRes] = await Promise.all([
+            fetch("/api/v1/plans"),
+            fetch("/api/v1/products"),
+            fetch("/api/v1/quotation-templates"),
+            authFetch("/api/v1/auth/customers"),
+            fetch("/api/v1/discounts")
+        ]);
+
+        availablePlans = await plansRes.json();
+        availableProducts = await prodsRes.json();
+        availableTemplates = await tmplRes.json();
+        const customers = await custRes.json();
+        availableDiscounts = await discRes.json();
+
+        // Populate selects
+        document.getElementById("sub-customer").innerHTML = customers.map(c => `<option value="${c.id}">${c.full_name} (${c.email})</option>`).join("");
+        document.getElementById("sub-plan").innerHTML = availablePlans.map(p => `<option value="${p.id}">${p.name} ($${p.recurring_price}/${p.billing_interval})</option>`).join("");
+        document.getElementById("sub-template-select").innerHTML = `<option value="">-- Start from scratch --</option>` + availableTemplates.map(t => `<option value="${t.id}">${t.name} (Valid: ${t.validity_days}d)</option>`).join("");
+        document.getElementById("sub-discount").innerHTML = `<option value="">-- No Discount --</option>` + availableDiscounts.map(d => `<option value="${d.id}">${d.name} (${d.discount_type === 'percentage' ? `${d.discount_value}%` : `$${d.discount_value}`})</option>`).join("");
+
+        document.getElementById("sub-start-date").value = new Date().toISOString().split("T")[0];
+        document.getElementById("sub-lines-container").innerHTML = "";
+        addLineRow();
+
+        document.getElementById("sub-modal").classList.add("active");
+    }
+
+    function closeSubModal() {
+        document.getElementById("sub-modal").classList.remove("active");
+    }
+
+    function addLineRow(prodId = null, variantId = null, qty = 1, unitPrice = null) {
+        const container = document.getElementById("sub-lines-container");
+        const div = document.createElement("div");
+        div.className = "line-item-row";
+        div.style.display = "grid";
+        div.style.gridTemplateColumns = "2fr 1fr 1fr auto";
+        div.style.gap = "0.5rem";
+        div.style.marginBottom = "0.5rem";
+
+        let prodOptions = availableProducts.map(p => `<option value="${p.id}" ${p.id === prodId ? 'selected' : ''}>${p.name} ($${p.sales_price})</option>`).join("");
+
+        div.innerHTML = `
+            <select class="form-control line-prod" required>${prodOptions}</select>
+            <input type="number" class="form-control line-qty" value="${qty}" min="1" placeholder="Qty">
+            <input type="number" step="0.01" class="form-control line-price" value="${unitPrice || ''}" placeholder="Unit Price">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="this.parentElement.remove()">&times;</button>
+        `;
+        container.appendChild(div);
+    }
+
+    function onTemplateSelected(templateId) {
+        if (!templateId) return;
+        const tmpl = availableTemplates.find(t => t.id == templateId);
+        if (tmpl) {
+            document.getElementById("sub-plan").value = tmpl.plan_id;
+            const container = document.getElementById("sub-lines-container");
+            container.innerHTML = "";
+            tmpl.lines.forEach(l => {
+                addLineRow(l.product_id, l.variant_id, l.quantity, l.unit_price);
+            });
+            showToast(`Applied quotation template: ${tmpl.name}`, "info");
+        }
+    }
+
+    async function submitNewSubscription(e) {
+        e.preventDefault();
+        const customerId = parseInt(document.getElementById("sub-customer").value);
+        const planId = parseInt(document.getElementById("sub-plan").value);
+        const startDate = document.getElementById("sub-start-date").value;
+        const terms = document.getElementById("sub-payment-terms").value;
+        const discVal = document.getElementById("sub-discount").value;
+        const tmplVal = document.getElementById("sub-template-select").value;
+
+        const lineRows = document.querySelectorAll(".line-item-row");
+        const lines = [];
+        lineRows.forEach(row => {
+            const pid = parseInt(row.querySelector(".line-prod").value);
+            const qty = parseInt(row.querySelector(".line-qty").value);
+            const price = parseFloat(row.querySelector(".line-price").value) || 0.0;
+            lines.push({ product_id: pid, quantity: qty, unit_price: price });
+        });
+
+        try {
+            const res = await authFetch("/api/v1/subscriptions", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    customer_id: customerId,
+                    plan_id: planId,
+                    start_date: startDate,
+                    payment_terms: terms,
+                    applied_discount_id: discVal ? parseInt(discVal) : null,
+                    quotation_template_id: tmplVal ? parseInt(tmplVal) : null,
+                    lines: lines
+                })
+            });
+
+            if (res.ok) {
+                const sub = await res.json();
+                showToast(`Created draft quote #${sub.subscription_number}!`, "success");
+                closeSubModal();
+                loadSubscriptions();
+            } else {
+                const err = await res.json();
+                showToast(err.detail || "Error creating subscription.", "error");
+            }
+        } catch (err) {
+            showToast("Network error creating quote.", "error");
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        loadSubscriptions();
+    });
+</script>
+{% endblock %}

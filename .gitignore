@@ -41,6 +41,9 @@ yarn-debug.log*
 yarn-error.log*
 
 # Databases
+*.db
+*.sqlite
+*.sqlite3
 *.db-journal
 *.sqlite3-journal
 

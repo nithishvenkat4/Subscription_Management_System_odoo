@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+        <div>
+            <div style="font-size: 0.85rem; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: 0.05em;">Scene 6 — The Money Comes In</div>
+            <h1 style="font-size: 2.15rem; font-weight: 800; color: var(--text-main); letter-spacing: -0.03em;">Payments Ledger &amp; Reconciliation</h1>
+            <p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 4px;">
+                Record received customer funds against outstanding invoices across Credit Card, Bank Transfer, and Stripe.
+            </p>
+        </div>
+
+        <a href="/invoices-view" class="btn btn-primary">
+            🧾 View Invoices &amp; Collect
+        </a>
+    </div>
+
+    <!-- Payments Ledger Table -->
+    <div class="panel">
+        <div class="panel-header">
+            <div class="panel-title">💳 Received Payments Ledger</div>
+            <span class="badge badge-paid">Fully Reconciled</span>
+        </div>
+        <div class="table-container">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Payment #</th>
+                        <th>Invoice Reference</th>
+                        <th>Customer ID</th>
+                        <th>Method</th>
+                        <th>Payment Date</th>
+                        <th>Amount Deposited</th>
+                        <th>Transaction Reference</th>
+                        <th>Notes</th>
+                    </tr>
+                </thead>
+                <tbody id="payments-tbody">
+                    <tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 2rem;">Loading payment history...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    async function loadPayments() {
+        try {
+            const res = await authFetch("/api/v1/payments");
+            if (res.ok) {
+                const payments = await res.json();
+                const tbody = document.getElementById("payments-tbody");
+                if (!payments || payments.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 2rem;">No payment transactions recorded yet.</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = payments.map(p => `
+                    <tr>
+                        <td style="font-weight: 800; color: var(--primary);">${p.payment_number}</td>
+                        <td style="font-weight: 700;">Invoice #${p.invoice_id}</td>
+                        <td>Customer #${p.customer_id}</td>
+                        <td><span class="badge" style="background: #e2e8f0; color: #334155;">${p.payment_method}</span></td>
+                        <td>${p.payment_date}</td>
+                        <td style="font-weight: 800; color: #16a34a;">+$${p.amount.toFixed(2)}</td>
+                        <td style="font-family: monospace; font-size: 0.8rem;">${p.transaction_reference || 'N/A'}</td>
+                        <td style="font-size: 0.85rem; color: var(--text-muted);">${p.note || '-'}</td>
+                    </tr>
+                `).join("");
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        loadPayments();
+    });
+</script>
+{% endblock %}
